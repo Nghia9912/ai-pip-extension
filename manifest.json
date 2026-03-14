@@ -1,0 +1,43 @@
+{
+  "manifest_version": 3,
+  "name": "AI Picture-in-Picture",
+  "version": "1.0",
+  "description": "Floating widget to track AI generation status across tabs",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "storage",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://chatgpt.com/*", "*://chat.openai.com/*"],
+      "js": ["detectors/chatgpt.js"]
+    },
+    {
+      "matches": ["*://claude.ai/*"],
+      "js": ["detectors/claude.js"]
+    },
+    {
+      "matches": ["*://gemini.google.com/*"],
+      "js": ["detectors/gemini.js"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/widget.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/widget.css"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
