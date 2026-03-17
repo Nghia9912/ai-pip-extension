@@ -1,6 +1,17 @@
-// State management (Lưu trạng thái độc lập cho từng Tab)
+// State management (Independent state for each Tab)
 let aiStates = {}; 
-// aiStates[tabId] = { status: "idle", snippet: "", timestamp: 0 }
+
+// Restore state from session storage (in case Service Worker goes to sleep)
+chrome.storage.session.get(['aiStates'], (result) => {
+  if (result.aiStates) {
+    aiStates = result.aiStates;
+    console.log("Restored aiStates from session storage:", aiStates);
+  }
+});
+
+function saveState() {
+  chrome.storage.session.set({ aiStates: aiStates });
+}
 
 // Listen for messages from content scripts (detectors)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -12,20 +23,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   console.log("Worker received message:", message, "from tab:", tabId);
 
-  // Khởi tạo state cho tab này nếu chưa có
+  // Initialize state for this tab if not present
   if (!aiStates[tabId]) {
     aiStates[tabId] = { status: "idle", snippet: "", timestamp: 0 };
   }
 
   if (message.type === "AI_THINKING" || message.type === "AI_DONE") {
-    // Update state cho riêng tab này
+    // Update state exclusively for this tab
     aiStates[tabId] = {
       status: message.type === "AI_THINKING" ? "thinking" : "done",
       snippet: message.snippet || "",
       timestamp: Date.now()
     };
+    saveState();
 
-    // Broadcast state MỚI NHẤT của tab này đến các tab khác để Widget cập nhật
+    // Broadcast LATEST state of this tab to clients (so Widget can update)
     broadcastState(tabId, aiStates[tabId]);
   }
 
@@ -37,16 +49,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
 
-    // Reset state sau khi click
+    // Reset state after click
     if (aiStates[message.targetTabId]) {
       aiStates[message.targetTabId].status = "idle";
+      saveState();
       broadcastState(message.targetTabId, aiStates[message.targetTabId]);
     }
   }
 
-  // Khi Widget (hoặc tab nào đó) mới mở lên và hỏi xem có AI nào đang chạy không
+  // When Widget requests state on load
   if (message.type === "GET_STATE") {
-    // Tìm AI gần đây nhất đang 'thinking' hoặc 'done'
+    // Find the latest AI currently 'thinking' or 'done'
     let latestTabId = null;
     let latestState = null;
     let maxTime = 0;
@@ -60,7 +73,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (latestState) {
-      // Gửi kèm tabId để Widget biết click vào đâu sẽ về đúng AI đó
+      // Send targetTabId so Widget knows which tab to focus on click
       sendResponse({ success: true, state: latestState, targetTabId: latestTabId });
     } else {
       sendResponse({ success: true, state: { status: "idle" } });
@@ -80,18 +93,34 @@ function broadcastState(sourceTabId, state) {
         state: state,
         targetTabId: sourceTabId
       }).catch(err => {
-        // Lơ các tab không cấy content script
+        // Ignore tabs without content script injected
       });
     }
   });
 }
 
-// Dọn dẹp state khi tab bị đóng
+// Clean up state when tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
   if (aiStates[tabId]) {
     delete aiStates[tabId];
-    // Coi như 'idle' để widget tắt đi
+    saveState();
+    // Treat as 'idle' to dismiss the widget
     broadcastState(tabId, { status: "idle" });
+  }
+});
+
+// =========================================================================
+// SERVICE WORKER KEEP-ALIVE HACK
+// Extension Manifest V3 suspends Service Workers after 30s of inactivity.
+// Since long AI generations take minutes, we must keep it awake.
+// =========================================================================
+const KEEP_ALIVE_INTERVAL = 0.25; // Minutes (15 seconds)
+
+chrome.alarms.create("keepAlive", { periodInMinutes: KEEP_ALIVE_INTERVAL });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "keepAlive") {
+    console.log("Keep-alive ping thumping...");
   }
 });
 

@@ -58,8 +58,8 @@ function updateWidgetUI(state) {
     icon.className = 'ai-pip-icon done';
     // Checkmark SVG
     icon.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-    title.textContent = 'Hoàn thành!';
-    snippet.textContent = state.snippet || 'Click để xem câu trả lời';
+    title.textContent = 'Done!';
+    snippet.textContent = state.snippet || 'Click to view response';
   }
 }
 

@@ -15,12 +15,9 @@ function getSnippet() {
 }
 
 function checkStatus() {
-  // Claude typically uses a button with a square stop icon when generating
-  // Or look for an aria-label="Stop generating" equivalent if they have one
   const stopButton = document.querySelector('button[aria-label*="Stop"]') || 
                      document.querySelector('.stop-generating-button'); 
   
-  // Or check for "streaming" attributes which they sometimes apply
   const streamingElement = document.querySelector('[data-is-streaming="true"]');
   
   const assistantMessages = document.querySelectorAll('.font-claude-message, [data-message-author-role="assistant"], .prose');
@@ -60,6 +57,15 @@ function checkStatus() {
   }
 }
 
-if (!checkInterval) {
-  checkInterval = setInterval(checkStatus, 500);
-}
+const workerScript = `
+  setInterval(() => {
+    postMessage('tick');
+  }, 500);
+`;
+const blob = new Blob([workerScript], { type: 'application/javascript' });
+const workerUrl = URL.createObjectURL(blob);
+const timerWorker = new Worker(workerUrl);
+
+timerWorker.onmessage = () => {
+  checkStatus();
+};
