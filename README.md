@@ -35,6 +35,3 @@ Currently, the extension is not on the Web Store. You can install it manually in
 - **Content Scripts Detectors:** Specific detectors inject into AI tabs. They monitor the DOM size every 500ms and watch for "Stop generating" button loops to accurately determine when the AI finishes a stream without false positives.
 - **Background Worker:** A central message broker (`worker.js`) that persists states for each `tabId` and orchestrates communication between AI tabs and your active viewing tabs.
 - **Shadow DOM Widget:** The UI notification is safely injected via closed Shadow DOM so that its CSS (`widget.css`) will never conflict with the styles of the websites you are browsing.
-
-## License
-MIT
